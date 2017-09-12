@@ -7,9 +7,6 @@
 #include <vector>
 #include <Windows.h>
 #include <mmsystem.h>
-#include "fmod.hpp"
-#include "fmod_common.h"
-#include "fmod_errors.h"
 
 const int MAX_WORD_SIZE = 30;
 
@@ -21,65 +18,10 @@ HANDLE g_evExit;
 
 HCURSOR hcur;
 
-FMOD::System* fmodSystem;
-FMOD_RESULT result;
-FMOD::Sound* quack;
-FMOD::Sound* Bark;
-
-FMOD::Sound* Sounds[10];
-int soundsIter;
-
 char keyboardInputBuffer[MAX_WORD_SIZE];
 int keyboardInputBufferIndex;
 
-struct fmodSound
-{
-	FMOD::Sound* _sound;
-	string _FileName;
-	string _Word;
-	int _indxInBffr;
-};
-
-vector<fmodSound*> fmdsBuffer;
 vector<string> vWords;
-
-void fmodErrorCheck(FMOD_RESULT result);
-void CreatefmodSound(string, string);
-void CreateSound(string, string);
-void PlayAudioFileForBuffer(int );
-
-void CreateSound(string file, string word)
-{
-	result = fmodSystem->createSound(file.c_str(), FMOD_DEFAULT, 0, &Sounds[soundsIter]);
-	fmodErrorCheck(result);
-	result = Sounds[soundsIter]->setMode(FMOD_LOOP_OFF);
-	fmodErrorCheck(result);
-	soundsIter++;
-}
-
-void CreatefmodSound(string fileName, string word)
-{
-	fmodSound* tempStrct = new fmodSound;
-	tempStrct->_FileName = fileName;
-	tempStrct->_Word = word;
-	tempStrct->_indxInBffr = fmdsBuffer.size();
-	fmdsBuffer.push_back(tempStrct);
-
-	result = fmodSystem->createSound(fileName.c_str(), FMOD_DEFAULT, 0, &fmdsBuffer[tempStrct->_indxInBffr]->_sound);
-	fmodErrorCheck(result);
-
-	result = fmdsBuffer[tempStrct->_indxInBffr]->_sound->setMode(FMOD_LOOP_OFF);
-	fmodErrorCheck(result);
-
-	tempStrct->_sound->release();
-	delete tempStrct;
-}
-
-void PlayAudioFileForBuffer(int bffrIdx)
-{
-	result = fmodSystem->playSound(fmdsBuffer[bffrIdx]->_sound, 0, false, NULL);
-	fmodErrorCheck(result);
-}
 
 LRESULT CALLBACK LowLevelKeyboardProc(int code, WPARAM wParam, LPARAM lParam)
 {
@@ -91,8 +33,6 @@ LRESULT CALLBACK LowLevelKeyboardProc(int code, WPARAM wParam, LPARAM lParam)
 		{
 		case WM_KEYDOWN:
 			msg = "Keydown";
-			result = fmodSystem->playSound(Bark, 0, false, NULL);
-			fmodErrorCheck(result);
 			break;
 		case WM_KEYUP:
 			msg = "Keyup";
@@ -119,16 +59,16 @@ LRESULT CALLBACK LowLevelKeyboardProc(int code, WPARAM wParam, LPARAM lParam)
 			keyboardInputBuffer[keyboardInputBufferIndex] = static_cast<char>(p->pt.x);
 			keyboardInputBufferIndex = (keyboardInputBufferIndex + 1) % MAX_WORD_SIZE;
 
-			system("cls");
-			for (size_t i = 0; i < MAX_WORD_SIZE; i++)
+			//system("cls");
+			for (int i = 0; i < MAX_WORD_SIZE; i++)
 			{
 				cout << keyboardInputBuffer[i] << " ";
 			}
 
 			if (
-				p->pt.x == 32  || //spacebar
-				p->pt.x == 13  || //return-enter
-				p->pt.x == 8   || //backspace
+				p->pt.x == 32 || //spacebar
+				p->pt.x == 13 || //return-enter
+				p->pt.x == 8 || //backspace
 				p->pt.x == 160 || //shift
 				p->pt.x == 161 || //shift
 				p->pt.x == 162    //ctrl
@@ -142,7 +82,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int code, WPARAM wParam, LPARAM lParam)
 				//p->pt.x == 85
 				)   //u
 			{
-				//sndPlaySound(TEXT("data/bark.wav"), SND_ASYNC);
+				sndPlaySound(TEXT("data/bark.wav"), SND_ASYNC);
 			}
 		}
 		else if (!keyup)
@@ -162,16 +102,14 @@ LRESULT CALLBACK LowLevelMouseProc(int code, WPARAM wParam, LPARAM lParam)
 		char msg_buff[128];
 		switch (wParam)
 		{
-		case WM_LBUTTONDOWN: msg = "WM_LBUTTONDOWN"; 
-			result = fmodSystem->playSound(quack, 0, false, NULL);
-			fmodErrorCheck(result); 
+		case WM_LBUTTONDOWN: msg = "WM_LBUTTONDOWN";
 			break;
-		case WM_LBUTTONUP: msg   = "WM_LBUTTONUP";    break;
+		case WM_LBUTTONUP: msg = "WM_LBUTTONUP";
+			break;
 		case WM_RBUTTONDOWN: msg = "WM_RBUTTONDOWN";
-			result = fmodSystem->playSound(quack, 0, false, NULL);
-			fmodErrorCheck(result);
 			break;
-		case WM_RBUTTONUP: msg   = "WM_RBUTTONUP"; break;
+		case WM_RBUTTONUP: msg = "WM_RBUTTONUP";
+			break;
 		default:
 			//sprintf(msg_buff, "Unknown msg: %u", wParam);
 			msg = msg_buff;
@@ -199,15 +137,6 @@ LRESULT CALLBACK LowLevelMouseProc(int code, WPARAM wParam, LPARAM lParam)
 	return CallNextHookEx(g_Hook, code, wParam, lParam);
 }//LowLevelMouseProc
 
-void fmodErrorCheck(FMOD_RESULT result)
-{
-	if (result != FMOD_OK)
-	{
-		MessageBoxExA(NULL, (LPCSTR)FMOD_ErrorString(result), (LPCSTR)"FMOD Error", MB_OK, 0);
-		ExitProcess(-1);
-	}
-}
-
 int main()
 {
 	g_evExit = CreateEvent(0, TRUE, FALSE, 0);
@@ -217,76 +146,56 @@ int main()
 		return 1;
 	}//if
 
-	soundsIter = 0;
-
-	string line;
-	ifstream mFile("ini.txt");
-	if(!mFile.is_open())
-	{
-		MessageBoxA(nullptr, (LPCSTR)"ini file could not be opened, closing quacker", (LPCSTR)"Error loading ini.txt", MB_OK);
-		return 1;
-	}
-	else
-	{
-		while (getline(mFile, line))
-		{
-			int endOfFirstFind;
-			endOfFirstFind = line.find(" ");
-			string tempWord;
-			string tempFilename;
-			for (int i = 0; i < endOfFirstFind; i++)
-			{
-				tempWord.push_back(line[i]);
-			}
-			cout << tempWord << " ";
-			for (int i = (int)endOfFirstFind + 1; i < line.size(); i++)
-			{
-				tempFilename.push_back(line[i]);
-			}
-			cout << tempFilename << endl;
-			CreateSound(tempFilename, tempWord);
-			//CreatefmodSound(tempFilename, tempWord);
-		}
-		mFile.close();
-	}
-
-	result = FMOD::System_Create(&fmodSystem);
-	fmodErrorCheck(result);
-
-	result = fmodSystem->init(32, FMOD_INIT_NORMAL, 0);
-	fmodErrorCheck(result);
-
-	result = fmodSystem->createSound("data/Quack(1).WAV", FMOD_DEFAULT, 0, &quack);
-	fmodErrorCheck(result);
-
-	result = quack->setMode(FMOD_LOOP_OFF);
-	fmodErrorCheck(result);
-
-	result = fmodSystem->createSound("data/bark.wav", FMOD_DEFAULT, 0, &Bark);
-	fmodErrorCheck(result);
-
-	result = Bark->setMode(FMOD_LOOP_OFF);
-	fmodErrorCheck(result);
-
-	//g_Hook = SetWindowsHookEx(WH_MOUSE_LL, &LowLevelMouseProc, GetModuleHandle(0), 0);
-	//if (!g_Hook)
+	//string line;
+	//ifstream mFile("ini.txt");
+	//if(!mFile.is_open())
 	//{
-	//	//SystemParametersInfo(SPI_SETCURSORS, 0, NULL, 0);
-	//	//cerr << "SetWindowsHookEx() failed, le = " << GetLastError() << endl;
-	//	return 1;
-	//}//if
-
-
-	//k_Hook = SetWindowsHookEx(WH_KEYBOARD_LL, &LowLevelKeyboardProc, GetModuleHandle(0), 0);
-	//if (!k_Hook)
-	//{
-	//	//SystemParametersInfo(SPI_SETCURSORS, 0, NULL, 0);
+	//	MessageBoxA(nullptr, (LPCSTR)"ini file could not be opened, closing quacker", (LPCSTR)"Error loading ini.txt", MB_OK);
 	//	return 1;
 	//}
+	//else
+	//{
+	//	while (getline(mFile, line))
+	//	{
+	//		int endOfFirstFind;
+	//		endOfFirstFind = line.find(" ");
+	//		string tempWord;
+	//		string tempFilename;
+	//		for (int i = 0; i < endOfFirstFind; i++)
+	//		{
+	//			tempWord.push_back(line[i]);
+	//		}
+	//		cout << tempWord << " ";
+	//		for (int i = (int)endOfFirstFind + 1; i < line.size(); i++)
+	//		{
+	//			tempFilename.push_back(line[i]);
+	//		}
+	//		cout << tempFilename << endl;
+	//		CreateSound(tempFilename, tempWord);
+	//		//CreatefmodSound(tempFilename, tempWord);
+	//	}
+	//	mFile.close();
+	//}
+
+	g_Hook = SetWindowsHookEx(WH_MOUSE_LL, &LowLevelMouseProc, GetModuleHandle(0), 0);
+	if (!g_Hook)
+	{
+		//SystemParametersInfo(SPI_SETCURSORS, 0, NULL, 0);
+		//cerr << "SetWindowsHookEx() failed, le = " << GetLastError() << endl;
+		return 1;
+	}//if
+
+	k_Hook = SetWindowsHookEx(WH_KEYBOARD_LL, &LowLevelKeyboardProc, GetModuleHandle(0), 0);
+	if (!k_Hook)
+	{
+		//SystemParametersInfo(SPI_SETCURSORS, 0, NULL, 0);
+		return 1;
+	}
 
 	//cout << "Press both left and right mouse buttons to exit..." << endl;
 
 	//FreeConsole();
+
 	for (int i = 0; i < MAX_WORD_SIZE; i++)
 	{
 		keyboardInputBuffer[i] = NULL;
@@ -303,9 +212,6 @@ int main()
 
 	while (1)
 	{
-		fmodSystem->update();
-
-
 		while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
 			DispatchMessage(&msg);
 
@@ -327,20 +233,6 @@ int main()
 	//cout << "Exiting..." << endl;
 	//SystemParametersInfo(SPI_SETCURSORS, 0, NULL, 0);
 
-	for (size_t i = 0; i < fmdsBuffer.size(); i++)
-	{
-		result = fmdsBuffer[i]->_sound->release();
-		fmodErrorCheck(result);
-	}
-
-	result = quack->release();
-	fmodErrorCheck(result);
-	result = Bark->release();
-	fmodErrorCheck(result);
-	result = fmodSystem->close();
-	fmodErrorCheck(result);
-	result = fmodSystem->release();
-	fmodErrorCheck(result);
 	UnhookWindowsHookEx(g_Hook);
 	UnhookWindowsHookEx(k_Hook);
 	CloseHandle(g_evExit);
