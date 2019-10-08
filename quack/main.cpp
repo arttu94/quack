@@ -127,12 +127,17 @@ int main()
 		return 1;
 	}
 
-	//cout << "Press both left and right mouse buttons to exit..." << endl;
+	cout << "Press both left and right mouse buttons to exit..." << endl;
 
-	ShowWindow(GetConsoleWindow(), SW_HIDE);
+	//ShowWindow(GetConsoleWindow(), SW_HIDE);
 
-	hcur = LoadCursorFromFile(L"data/duck.cur");
-	SetSystemCursor(hcur, 32512/*OCR_NORMAL*/);
+	/* 
+		this changes the cursor to a duck but now it doesn't revert
+		to the old default cursor, idk why. so it's gonna be commented until 
+		I figure out why it doesn't change back.
+	*/
+	//hcur = LoadCursorFromFile(L"data/duck.cur");
+	//SetSystemCursor(hcur, 32512/*OCR_NORMAL*/);
 
 	MSG msg;
 
@@ -167,6 +172,3 @@ int main()
 
 	return 0;
 }//main
-
-
-//q u a c k  
